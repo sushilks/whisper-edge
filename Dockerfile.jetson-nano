@@ -43,4 +43,14 @@ RUN for model in $CACHED_MODELS; do python -c "import whisper; whisper.load_mode
 
 # Add the streaming script and its dependencies.
 RUN python -m pip install absl-py
+ENV LC_ALL=C.UTF-8
+COPY vocab.bpe /root/.cache/whisper/
+COPY encoder.json /root/.cache/whisper/
+COPY openai_public.py /jetson-inference/tiktoken/tiktoken_ext/openai_public.py
+RUN python -m pip install blobfile
+RUN apt-get -y install portaudio19-dev
+RUN python -m pip install pyaudio 
+RUN python -m pip install SpeechRecognition
 COPY stream.py .
+COPY stream2.py .
+COPY stream3.py .

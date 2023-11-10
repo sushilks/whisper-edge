@@ -4,12 +4,12 @@
 set -e
 
 # Run the docker image with the streaming script. Pass through any arguments.
-sudo docker run \
+docker run \
   --runtime nvidia \
   -it \
   --rm  \
   --network host \
   --device /dev/snd \
   whisper-inference \
-  python stream.py \
+  python stream3.py \
   $@
