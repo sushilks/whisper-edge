@@ -7,6 +7,7 @@ import numpy as np
 import queue
 import sounddevice as sd
 from time import time as now
+import torch
 import whisper
 
 FLAGS = flags.FLAGS
@@ -26,6 +27,7 @@ flags.DEFINE_integer('chunk_seconds', 10,
                      'The length in seconds of each recorded chunk of audio.')
 flags.DEFINE_string('latency', 'low', 'The latency of the recording stream.')
 
+pdev = torch.device("cuda:0")
 
 # A decorator to log the timing of performance-critical functions.
 def timed(func):
@@ -63,7 +65,7 @@ def stream_callback(indata, frames, time, status, audio_queue):
 def process_audio(audio_queue, model):
     # Block until the next chunk of audio is available on the queue.
     audio = audio_queue.get()
-
+    audio = torch.from_numpy(audio).to(pdev)
     # Transcribe the latest audio chunk.
     transcribe(model=model, audio=audio)
 
@@ -77,7 +79,7 @@ def main(argv):
     logging.info('Warming model up...')
     block_size = FLAGS.chunk_seconds * FLAGS.sample_rate
     whisper.transcribe(model=model,
-                       audio=np.zeros(block_size, dtype=np.float32))
+                       audio=torch.from_numpy(np.zeros(block_size, dtype=np.float32)).to(pdev) )
 
     # Stream audio chunks into a queue and process them from there. The
     # callback is running on a separate thread.

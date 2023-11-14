@@ -11,12 +11,15 @@ import whisper
 import speech_recognition as sr
 from datetime import datetime, timedelta
 from time import sleep
+import torch
+import audioop
 
 audioQueue = np.array([],dtype=np.float32)
 lastSilence = np.array([],dtype=np.float32)
 lastProcessTime = 0
 silenceCnt = 0
 
+pdev = torch.device("cuda:0")
 FLAGS = flags.FLAGS
 flags.DEFINE_string('model_name', 'base.en',
                     'The version of the OpenAI Whisper model to use.')
@@ -84,7 +87,8 @@ def transcribe(model, audio):
     #dt_f = data_s16 * 0.5**15
     dt_f = byte_to_float(audio)
     # print(dt_f)
-    result = whisper.transcribe(model=model, audio=dt_f)
+    audio = torch.from_numpy(dt_f).to(pdev)
+    result = whisper.transcribe(model=model, audio=audio)
 
     # Use the transcribed text.
     text = result['text'].strip()
@@ -96,7 +100,12 @@ def transcribe(model, audio):
 @timed
 def stream_callback(_, audio:sr.AudioData, audio_queue: queue.Queue) -> None:
     data = audio.get_raw_data()
-    audio_queue.put(data)
+    data = audioop.ratecv(data, 1, 1, FLAGS.sample_rate, 16000, None )
+    l = len(data[0])
+    if (l & 1 == 1):
+        audio_queue.put(data[0][:-1])
+    else:
+        audio_queue.put(data[0])
     
 @timed
 def hasVoice(audio):
@@ -166,6 +175,7 @@ def main(argv):
         return
     else:
         for index, name in enumerate(sr.Microphone.list_microphone_names()):
+            # print("Chedking Mic for [", mic_name, "] == ", name)
             if mic_name in name:
                 source = sr.Microphone(sample_rate=FLAGS.sample_rate, device_index=index)
                 break
@@ -174,8 +184,8 @@ def main(argv):
     phrase_timeout = FLAGS.phrase_timeout
 
 
-    with source:
-        recorder.adjust_for_ambient_noise(source)
+#    with source:
+#        recorder.adjust_for_ambient_noise(source)
 
         
     logging.info(f'Loading model "{FLAGS.model_name}"...')
@@ -183,7 +193,7 @@ def main(argv):
     logging.info('Warming model up...')
     block_size = 2 * FLAGS.sample_rate
     whisper.transcribe(model=model,
-                       audio=np.zeros(block_size, dtype=np.float32))
+                       audio=torch.tensor(np.zeros(block_size, dtype=np.float32)).to(pdev))
 
 
     # Create a background thread that will pass us raw audio bytes.
