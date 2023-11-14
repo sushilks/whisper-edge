@@ -11,6 +11,7 @@ import time
 import whisper
 import torch
 import audioop
+import sys
 from voiceDetect import FindVoiceSegments
 from datetime import datetime, timedelta
 
@@ -59,8 +60,9 @@ def transcribe(model, audio):
 
 @timed
 def stream_callback(indata, frames, time, status, fvs):
-    if status:
-        logging.warning(f'Stream callback status: {status}')
+    #if status:
+    #    logging.warning(f'Stream callback status: {status}')
+    #    print("##", status)
 
     # Add this chunk of audio to the queue.
     audio = indata[:, FLAGS.channel_index].copy()
@@ -101,6 +103,7 @@ def main(argv):
                     TM="[" + datetime.now().strftime('%H:%M:%S>') + "][" + str(fvs.pendingQSize()) +"]"
                     text=fvs.transcribe(model)
                     print(TM + text)
+                    sys.stdout.flush()
 
 if __name__ == '__main__':
     app.run(main)

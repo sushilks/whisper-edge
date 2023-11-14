@@ -93,7 +93,7 @@ class FindVoiceSegments(object):
         self.debug = debug
         self.sampleDuration = 30 # ms
         self.last1sec = deque(maxlen=int(1000/self.sampleDuration))
-        self.vad = webrtcvad.Vad(1)
+        self.vad = webrtcvad.Vad(0)
         self.audio_queue = queue.Queue()
         self.sample_rate = sample_rate
         self.recording = False
@@ -129,7 +129,8 @@ class FindVoiceSegments(object):
         while not self.audio_queue.empty():
             dt = np.concatenate((dt, self.audio_queue.get()))
         if self.debug:
-            print("Flushing data size:", len(dt))
+            print(".")
+#            print("Flushing data size:", len(dt))
         self.transcriptionQueue.put(dt)
 
     def transcribe(self, model):
@@ -157,7 +158,7 @@ class FindVoiceSegments(object):
             data = dataIn[::3]
         self.last1sec.append(data)
         hasVoice = self.hasVoice(data)
-        if(self.debug and hasVoice):
+        if(self.debug and hasVoice and False):
             print("Got voice data:", self.transcriptionQueue.qsize(), self.noVoiceCnt, self.hasVoiceCnt)
         if hasVoice:
             self.noVoiceCnt = 0
@@ -168,7 +169,7 @@ class FindVoiceSegments(object):
         if self.recording:
             self.audio_queue.put(data)
             timeElapsed = int(time.time() - self.recordingStartTime)
-            if timeElapsed > 10 or (timeElapsed > 2 and self.pauseDetected(400)):
+            if timeElapsed > 10 or (timeElapsed > 2 and self.pauseDetected(100)):
                 self.flushQueue()
                 self.recording = False
                 if hasVoice:
